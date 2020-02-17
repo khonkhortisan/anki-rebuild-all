@@ -7,13 +7,17 @@
 # Contributors:
 # - @Arthaey
 # - @ankitest
+# - @ArthurMilchior
 
-import re
+import threading
+from anki.cards import Card
+import time
+from anki.lang import _
 from anki.hooks import wrap
 from aqt import mw
 from aqt.deckbrowser import DeckBrowser
 from aqt.utils import tooltip
-
+from .config import getUserOption
 
 def _updateFilteredDecks(actionFuncName):
     dynDeckIds = [ d["id"] for d in mw.col.decks.all() if d["dyn"] ]
@@ -51,3 +55,17 @@ def _addButtons(self):
 
 DeckBrowser._drawButtons = wrap(DeckBrowser._drawButtons, _addButtons, "before")
 DeckBrowser._linkHandler = wrap(DeckBrowser._linkHandler, _handleFilteredDeckButtons, "after")
+
+lastReview = None
+
+def postSched(self):
+    global lastReview
+    delta = getUserOption("time")
+    print("New Flush")
+    if delta and (lastReview is None or time.time() > lastReview + delta):
+        print("doing it")
+        _updateFilteredDecks("rebuildDyn")
+        lastReview = time.time()
+
+Card.flushSched = wrap(Card.flushSched, postSched)
+Card.sched = wrap(Card.flush, postSched)
